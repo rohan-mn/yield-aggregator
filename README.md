@@ -12,6 +12,4 @@ REPORT_GAS=true npx hardhat test
 npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/Lock.js
 ```
-=======
-# yield-aggregator
->>>>>>> 0e0d83aa5ad574d4db4cb3fda98b26fdaaea08ef
+
