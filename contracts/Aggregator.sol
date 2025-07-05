@@ -7,6 +7,7 @@ contract Aggregator {
     MockProtocol public protoA;
     MockProtocol public protoB;
 
+    /// index 0 → A, 1 → B
     event Routed(address protocol, address indexed user, uint256 amount);
 
     constructor(address _a, address _b) {
@@ -14,7 +15,7 @@ contract Aggregator {
         protoB = MockProtocol(_b);
     }
 
-    // Deposit whichever protocol has the higher APY
+    /// existing “auto-select” deposit
     function depositHighest() external payable {
         require(msg.value > 0, "Send ETH to deposit");
         uint256 a = protoA.getAPY();
@@ -25,6 +26,20 @@ contract Aggregator {
         } else {
             protoB.deposit{value: msg.value}();
             emit Routed(address(protoB), msg.sender, msg.value);
+        }
+    }
+
+    /// new: explicitly deposit to A (0) or B (1)
+    function depositTo(uint256 idx) external payable {
+        require(msg.value > 0, "Send ETH to deposit");
+        if (idx == 0) {
+            protoA.deposit{value: msg.value}();
+            emit Routed(address(protoA), msg.sender, msg.value);
+        } else if (idx == 1) {
+            protoB.deposit{value: msg.value}();
+            emit Routed(address(protoB), msg.sender, msg.value);
+        } else {
+            revert("Invalid protocol index");
         }
     }
 }

@@ -1,13 +1,12 @@
 // src/main/java/com/example/controller/YieldController.java
 package com.example.controller;
 
+import com.example.dto.ProtocolDto;
 import com.example.service.DefiLlamaService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -16,12 +15,19 @@ public class YieldController {
     private final DefiLlamaService llama;
 
     /**
-     * GET /api/apy -> { "A": <Aave%>, "B": <Raydium%> }
+     * GET /api/protocols
+     * - ?count=N (default 5) returns top-N by APY
+     * - ?search=foo    returns all matching 'foo'
      */
-    @GetMapping("/apy")
-    public Map<String, Double> getApy() {
-        double a = llama.getApyAave().get() * 100;
-        double b = llama.getApyRaydium().get() * 100;
-        return Map.of("Aave-V3", a, "Binance Staked ETH", b);
+    @GetMapping("/protocols")
+    public List<ProtocolDto> protocols(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false, defaultValue = "5") int count
+    ) {
+        if (search != null && !search.isBlank()) {
+            return llama.searchProtocols(search);
+        } else {
+            return llama.getTopProtocols(count);
+        }
     }
 }

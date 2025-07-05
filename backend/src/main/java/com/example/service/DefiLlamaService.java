@@ -2,66 +2,87 @@
 package com.example.service;
 
 import com.example.dto.PoolDto;
+import com.example.dto.ProtocolDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Getter;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import jakarta.annotation.PostConstruct;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class DefiLlamaService {
-    private static final String LLAMA_URL = "https://yields.llama.fi/pools";
+    private final RestTemplate rest = new RestTemplate();
+    private final ObjectMapper mapper = new ObjectMapper();
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    /** Hold the full list of pools fetched from DeFiLlama */
+    private final AtomicReference<List<PoolDto>> poolRef = new AtomicReference<>(List.of());
 
-    @Getter private final AtomicReference<Double> apyAave = new AtomicReference<>(0.0);
-    @Getter private final AtomicReference<Double> apyRaydium = new AtomicReference<>(0.0);
-
+    /** Fetch once on startup */
     @PostConstruct
     public void init() {
-        fetchAndUpdate();
+        refreshPools();
     }
 
-    @Scheduled(fixedRate = 60_000)
-    public void fetchAndUpdate() {
+    /** Refresh every 30 seconds */
+    @Scheduled(fixedRate = 30_000)
+    public void refreshPools() {
         try {
-            String json = restTemplate.getForObject(LLAMA_URL, String.class);
-            JsonNode root = objectMapper.readTree(json);
-            JsonNode arr = root.isArray() ? root : root.path("data");
+            String json = rest.getForObject("https://yields.llama.fi/pools", String.class);
+            JsonNode root = mapper.readTree(json);
+            JsonNode data = root.has("data") ? root.get("data") : root; 
 
-            List<PoolDto> pools = objectMapper.convertValue(
-                arr,
+            List<PoolDto> pools = mapper.readValue(
+                data.toString(),
                 new TypeReference<List<PoolDto>>() {}
             );
 
-            // Fetch Aave-V3 APY
-            double aave = pools.stream()
-                .filter(p -> p.getProject() != null 
-                          && p.getProject().equalsIgnoreCase("aave-v3"))
-                .mapToDouble(p -> (p.getApyBase() != null ? p.getApyBase() : 0.0)
-                               + (p.getApyReward() != null ? p.getApyReward() : 0.0))
-                .findFirst().orElse(0.0);
-
-            // Fetch Raydium APY
-            double binance_staked_eth = pools.stream()
-                .filter(p -> p.getProject() != null 
-                          && p.getProject().equalsIgnoreCase("binance-staked-eth"))
-                .mapToDouble(p -> (p.getApyBase() != null ? p.getApyBase() : 0.0)
-                               + (p.getApyReward() != null ? p.getApyReward() : 0.0))
-                .findFirst().orElse(0.0);
-
-            apyAave.set(aave);
-            apyRaydium.set(binance_staked_eth);
-            System.out.println("▶️ Aave APY=" + aave + ", Binance staked ETH  APY=" + binance_staked_eth);
+            poolRef.set(pools);
+            log.info("✅ Refreshed {} pools from DeFiLlama", pools.size());
         } catch (Exception ex) {
-            System.err.println("❌ Error fetching DefiLlama pools: " + ex.getMessage());
+            log.error("❌ Failed to fetch DeFiLlama pools", ex);
         }
+    }
+
+    /** Return the raw list (if you ever need it) */
+    public List<PoolDto> getAllPools() {
+        return poolRef.get();
+    }
+
+    /** Compute and return top-N by APY */
+    public List<ProtocolDto> getTopProtocols(int count) {
+        return poolRef.get().stream()
+            .filter(p -> p.getProject() != null)
+            .map(p -> new ProtocolDto(
+                p.getProject(),
+                (p.getApyBase() != null ? p.getApyBase() : 0.0)
+                + (p.getApyReward() != null ? p.getApyReward() : 0.0)
+            ))
+            .sorted(Comparator.comparingDouble(ProtocolDto::getApy).reversed())
+            .limit(count)
+            .collect(Collectors.toList());
+    }
+
+    /** Search by project name (case-insensitive) */
+    public List<ProtocolDto> searchProtocols(String term) {
+        String lower = term.toLowerCase();
+        return poolRef.get().stream()
+            .filter(p -> p.getProject() != null
+                      && p.getProject().toLowerCase().contains(lower))
+            .map(p -> new ProtocolDto(
+                p.getProject(),
+                (p.getApyBase() != null ? p.getApyBase() : 0.0)
+                + (p.getApyReward() != null ? p.getApyReward() : 0.0)
+            ))
+            .sorted(Comparator.comparingDouble(ProtocolDto::getApy).reversed())
+            .collect(Collectors.toList());
     }
 }

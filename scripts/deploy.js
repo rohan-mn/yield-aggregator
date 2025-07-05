@@ -1,26 +1,31 @@
-require("dotenv").config();
-const { ethers } = require("hardhat");
-
+// scripts/deploy.js
 async function main() {
-  // 1) Deploy two mock protocols with different starting APYs
   const [deployer] = await ethers.getSigners();
-  console.log("Deploying from:", deployer.address);
+  console.log("Deploying contracts with account:", deployer.address);
 
+  // 1) Deploy two instances of MockProtocol with different APYs
   const Mock = await ethers.getContractFactory("MockProtocol");
-  const protoA = await Mock.deploy(500);   // 5.00%
-  await protoA.deployed();
-  const protoB = await Mock.deploy(300);   // 3.00%
-  await protoB.deployed();
-  console.log("MockA @", protoA.address, "MockB @", protoB.address);
 
-  // 2) Deploy the aggregator pointing at those two
-  const Agg = await ethers.getContractFactory("Aggregator");
-  const agg = await Agg.deploy(protoA.address, protoB.address);
+  // e.g. 500 = 5.00% APY
+  const mockA = await Mock.deploy(500);
+  await mockA.deployed();
+  console.log("MockProtocol A deployed to:", mockA.address);
+
+  // e.g. 300 = 3.00% APY
+  const mockB = await Mock.deploy(300);
+  await mockB.deployed();
+  console.log("MockProtocol B deployed to:", mockB.address);
+
+  // 2) Deploy your Aggregator pointing at the two MockProtocol addresses
+  const Aggregator = await ethers.getContractFactory("Aggregator");
+  const agg = await Aggregator.deploy(mockA.address, mockB.address);
   await agg.deployed();
-  console.log("Aggregator @", agg.address);
+  console.log("Aggregator deployed to:", agg.address);
 }
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("Deployment failed:", error);
+    process.exit(1);
+  });
