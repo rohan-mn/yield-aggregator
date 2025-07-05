@@ -1,3 +1,4 @@
+// app/compare/page.tsx
 "use client";
 
 import { useSearchParams } from "next/navigation";
@@ -10,7 +11,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid
+  CartesianGrid,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,16 +19,14 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  CardDescription
+  CardDescription,
 } from "@/components/ui/card";
 import { Loader2, XCircle, Wallet, TrendingUp } from "lucide-react";
 import { BrowserProvider, Contract, parseEther } from "ethers";
 import Web3Modal from "web3modal";
 
 const AGG_ADDR = process.env.NEXT_PUBLIC_AGG_ADDR!;
-const AGG_ABI = [
-  "function depositTo(uint256) external payable"
-] as const;
+const AGG_ABI = ["function depositTo(uint256) external payable"] as const;
 
 type ProtocolAPY = { name: string; apy: number };
 
@@ -42,7 +41,7 @@ export default function ComparePage() {
   const [depositing, setDepositing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // connect wallet + aggregator contract
+  // Connect wallet + contract
   useEffect(() => {
     (async () => {
       try {
@@ -60,7 +59,7 @@ export default function ComparePage() {
     })();
   }, []);
 
-  // fetch current APYs
+  // Fetch current APYs
   const fetchApys = async () => {
     try {
       const results = await Promise.all(
@@ -70,7 +69,6 @@ export default function ComparePage() {
               `/api/protocols?search=${encodeURIComponent(name)}`
             )
             .then(r => {
-              // pick exact name if present else first
               const hit =
                 r.data.find(p => p.name === name) || r.data[0] || { name, apy: 0 };
               return { name, apy: hit.apy };
@@ -83,21 +81,21 @@ export default function ComparePage() {
     }
   };
 
-  // initial + interval
+  // Initial fetch + interval
   useEffect(() => {
     fetchApys();
     const iv = setInterval(fetchApys, 30_000);
     return () => clearInterval(iv);
   }, []);
 
-  // deposit handler
+  // Deposit handler
   const depositTo = async (idx: number) => {
     if (!contract) return;
     setDepositing(true);
     setMsg(null);
     try {
       const tx = await contract.depositTo(idx, {
-        value: parseEther("0.01")
+        value: parseEther("0.01"),
       });
       await tx.wait();
       setMsg(`✅ Deposited to ${names[idx]}`);
@@ -112,8 +110,7 @@ export default function ComparePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-indigo-900 to-purple-800 text-white">
-        <Loader2 className="animate-spin mr-2" />
-        Connecting wallet…
+        <Loader2 className="animate-spin mr-2" /> Connecting wallet…
       </div>
     );
   }
@@ -128,7 +125,7 @@ export default function ComparePage() {
               Protocol APY Comparison
             </CardTitle>
             <CardDescription className="text-white/80">
-              Choose and deposit to any of your selected protocols
+              Choose and deposit to any selected protocol
             </CardDescription>
           </CardHeader>
 
@@ -139,7 +136,6 @@ export default function ComparePage() {
               </div>
             )}
 
-            {/* === Vertical Bar Chart === */}
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -161,23 +157,22 @@ export default function ComparePage() {
                     contentStyle={{
                       backgroundColor: "rgba(0,0,0,0.7)",
                       border: "none",
-                      borderRadius: "8px"
+                      borderRadius: "8px",
                     }}
                     itemStyle={{ color: "#fff" }}
                     labelStyle={{ color: "#fff" }}
                   />
-                  <Bar
-                    dataKey="apy"
-                    fill="url(#gradient)"
-                    isAnimationActive={false}
-                  />
-                  {/* define a nice gradient */}
                   <defs>
                     <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2} />
                     </linearGradient>
                   </defs>
+                  <Bar
+                    dataKey="apy"
+                    fill="url(#gradient)"
+                    isAnimationActive={false}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>

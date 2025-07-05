@@ -1,3 +1,4 @@
+// app/search/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -10,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  CardDescription
+  CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,16 +20,14 @@ import {
   CheckCircle,
   Loader2,
   XCircle,
-  TrendingUp
+  TrendingUp,
 } from "lucide-react";
 
 type Protocol = { name: string; apy: number };
 
-// remove duplicates by name, keep first occurrence
+// dedupe & keep first occurrence
 function dedupeProtocols(arr: Protocol[]): Protocol[] {
-  return arr.filter(
-    (p, idx) => arr.findIndex(x => x.name === p.name) === idx
-  );
+  return arr.filter((p, idx) => arr.findIndex(x => x.name === p.name) === idx);
 }
 
 export default function SearchPage() {
@@ -40,7 +39,7 @@ export default function SearchPage() {
   const [error, setError] = useState<string|null>(null);
   const router = useRouter();
 
-  // fetch top-5 on mount
+  // Fetch top-5 on mount
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -58,11 +57,9 @@ export default function SearchPage() {
     })();
   }, []);
 
-  // debounced search
+  // Debounced search
   const doSearch = useCallback(debounce(async (q: string) => {
-    if (!q) {
-      return setShown(all);
-    }
+    if (!q) return setShown(all);
     setLoading(true);
     try {
       const { data } = await axios.get<Protocol[]>(
@@ -85,12 +82,9 @@ export default function SearchPage() {
   const toggle = (p: Protocol) => {
     setSel(s => {
       const exists = s.find(x => x.name === p.name);
-      if (exists) {
-        return s.filter(x => x.name !== p.name);
-      } else {
-        // keep max 3 selections
-        return [...s, p].slice(-3);
-      }
+      if (exists) return s.filter(x => x.name !== p.name);
+      // max 3 selections
+      return [...s, p].slice(-3);
     });
   };
 
@@ -137,7 +131,7 @@ export default function SearchPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {shown.length > 0 ? (
             shown.map((p, i) => {
-              const active = Boolean(sel.find(x => x.name === p.name));
+              const active = sel.some(x => x.name === p.name);
               return (
                 <motion.div
                   key={`${p.name}-${i}`}
@@ -180,9 +174,7 @@ export default function SearchPage() {
             animate={{ opacity: 1 }}
             className="mt-8 bg-white/10 backdrop-blur-lg rounded-2xl p-4 text-white"
           >
-            <h3 className="font-medium mb-2">
-              Selected ({sel.length}/3):
-            </h3>
+            <h3 className="font-medium mb-2">Selected ({sel.length}/3):</h3>
             <ul className="list-disc list-inside space-y-1">
               {sel.map(p => (
                 <li key={p.name}>
